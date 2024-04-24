@@ -2,7 +2,12 @@
 
 <head>
 	<link rel="stylesheet" href="launcher.css" />
-
+	<script>
+		async function run(s) {
+			console.log("will run", s);
+			const response = await fetch(`/launch/${s}`);
+		}
+	</script>
 </head>
 
 <body>
