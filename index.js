@@ -3,6 +3,7 @@ const fastify = require('fastify')({
 	logger: true
 })
 
+const { dir } = require('node:console');
 const fsPath = require("node:path");
 
 const fs = require('node:fs').promises;
@@ -13,9 +14,21 @@ const IGNORE_LIST = [
 	/unitycrashhandler/i
 ]
 
+function isIgnored(igno) {
+	for (let i = 0; i < IGNORE_LIST.length; i++) {
+		if (IGNORE_LIST[i].test(igno)) {
+			return true;
+		}
+	}
+	return false;
+}
 function toList(arr) {
 	const items = arr.map(s => `<li><a onclick="run('${s}')" href="#">${s}!</a></li>`);
 	return `<ul>${items.join('')}</ul>`
+}
+
+function normalize(str) {
+	return str.toLowerCase().replace(/\s/g, "");
 }
 
 
@@ -24,16 +37,95 @@ function toList(arr) {
  * Returns the full path of the executable under the provided folder, empty string if not found
  * @param {*} target 
  */
-async function findExecutable(target) {
-	const path = fsPath.resolve(GAMES_FOLDER, target);
-	const files = await fs.readdir(path, { withFileTypes: true });
-	// 1. iterate on the files. If we find a relevant exe, return the full path
-	for (let i = 0, len = files.length; i < len; ++i) {
 
-	}
-	const folders = files.filter(rec => rec.isDirectory());
+async function findExecutable(target) {
+	var exe = await executeTheExe(target, normalize(fsPath.basename(target)))
+	exe = await finalFilter(exe);
+	return (exe);
 	// 2. If we got here, no exe was found in the folder. Iterate on the files and recursively call the filter func
 }
+
+async function executeTheExe(targetFolder, targetName) {
+	const dirArr = [],
+		exeArr = [],
+		count = 0;
+		const targName = targetFolder.name;
+	const path = fsPath.resolve(GAMES_FOLDER, targName);
+	const files = await fs.readdir(path, { withFileTypes: true });
+	// 1. iterate on the files. If we find a relevant exe, return the full path
+
+	/** Filters -
+	 *  if isn't .exe - skip
+	 * if includes game name (case and whitespace insensitive) - choose
+	 * if all others haven't worked and it inclues "lanucher" - choose 
+	 */
+	for (let i = 0, len = files.length; i < len; ++i) {
+		var found;
+		const current = files[i],
+			name = current.name;
+		if (current.isDirectory()) {
+			dirArr.push(current);
+			continue
+		}
+		if (isIgnored(name)) {
+			continue;
+		}
+		const ext = fsPath.extname(current);
+		if (ext !== ".exe") {
+			//filter out anything that isn't .exe
+			continue
+		}
+		const normOrig = normalize(fsPath.basename(targetFolder)),
+			normNew = normalize(fsPath.basename(name))
+		if (normNew.indexOf(normOrig) >= 0 || normOrig.indexOf(normNew) >= 0) {
+			//contains the name of the folder AKA "target"
+			found = `${targName}\\${files[i]}`;
+			return (found)
+		}
+		exeArr.push(current);
+	}
+
+
+	/*
+	Problems to solve -
+	1.X when checking for game name in folder name check for the ORIGINAL folder (maybe in addition) (e.g steamapps\\common\\--> hades <--). status
+	2.X return full path up the chain
+	
+	How to (2) - return the full path for function
+	base idea - return files [i] + current
+	*/
+
+
+	for (let i = 0; i < dirArr.length; i++) {
+		// string to the start of dirArr the target folder name so it works with the current logic of findExecutable
+		const save = executeTheExe(dirArr[i], targetName);
+		if (Array.isArray(save)) {
+			tempArr = save.map(item => `${targName}\\${item}`)
+			exeArr.push(...save);
+		}
+		else if (save) {
+			return (`${targName}\\${save}`)
+		}
+	}
+	return exeArr
+}
+
+async function finalFilter(input) {
+	if (!input) {
+		return ""
+	}
+	if (Array.isArray(input)) {
+		for (let i = 0; i < input.length; i++) {
+			const subject = input[i];
+			if (subject.includes("launcher")) {
+				return subject
+			}
+		}
+	}
+
+	return (input);
+}
+
 
 /*
 
@@ -49,12 +141,13 @@ fastify.get('/launch/:name', function (request, reply) {
 	const tempr = findExecutable(request);
 	reply.type("application/json")
 		.send({ type: "game", name: request.params.name })
+	oShell.ShellExecute(tempr)
 })
 
 // Declare a route
 fastify.get('/', async function (request, reply) {
 	reply.type("text/html");
-	const data = await 453.readFile('G:\\IQ++\\Code\\exercises\\Launcher\\htemel.html', 'utf8');
+	const data = await fs.readFile('G:\\IQ++\\Code\\exercises\\Launcher\\htemel.html', 'utf8');
 	// async call the file listing
 	// upon reply (assume no error):
 	// replace some placeholder with a list constructed from the file listing, procesed by toList
@@ -79,3 +172,4 @@ fastify.listen({ port: 3000 }, function (err, address) {
 	// Server is now listening on ${address}
 })
 
+const fff =  findExecutable({ name: "Hades" }).then((result)=>console.log("hey", result))
