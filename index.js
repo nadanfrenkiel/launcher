@@ -39,8 +39,8 @@ function normalize(str) {
  */
 
 async function findExecutable(target) {
-	var exe = await executeTheExe(target, normalize(fsPath.basename(target)))
-	exe = await finalFilter(exe);
+	var exe = await executeTheExe(target, normalize(target))
+	exe = await finalFilter(exe, target);
 	return (exe);
 	// 2. If we got here, no exe was found in the folder. Iterate on the files and recursively call the filter func
 }
@@ -49,8 +49,8 @@ async function executeTheExe(targetFolder, targetName) {
 	const dirArr = [],
 		exeArr = [],
 		count = 0;
-		const targName = targetFolder.name;
-	const path = fsPath.resolve(GAMES_FOLDER, targName);
+	//	const targName = targetFolder.name;
+	const path = fsPath.resolve(GAMES_FOLDER, targetFolder);
 	const files = await fs.readdir(path, { withFileTypes: true });
 	// 1. iterate on the files. If we find a relevant exe, return the full path
 
@@ -70,16 +70,16 @@ async function executeTheExe(targetFolder, targetName) {
 		if (isIgnored(name)) {
 			continue;
 		}
-		const ext = fsPath.extname(current);
+		const ext = fsPath.extname(name);
 		if (ext !== ".exe") {
 			//filter out anything that isn't .exe
 			continue
 		}
-		const normOrig = normalize(fsPath.basename(targetFolder)),
-			normNew = normalize(fsPath.basename(name))
+		const normOrig = normalize(targetName),
+			normNew = normalize(fsPath.basename(name, '.exe'))
 		if (normNew.indexOf(normOrig) >= 0 || normOrig.indexOf(normNew) >= 0) {
 			//contains the name of the folder AKA "target"
-			found = `${targName}\\${files[i]}`;
+			const found = `${targetFolder}\\${files[i].name}`;
 			return (found)
 		}
 		exeArr.push(current);
@@ -98,26 +98,27 @@ async function executeTheExe(targetFolder, targetName) {
 
 	for (let i = 0; i < dirArr.length; i++) {
 		// string to the start of dirArr the target folder name so it works with the current logic of findExecutable
-		const save = executeTheExe(dirArr[i], targetName);
+		const save = await executeTheExe(`${targetFolder}\\${dirArr[i].name}`, targetName);
 		if (Array.isArray(save)) {
-			tempArr = save.map(item => `${targName}\\${item}`)
+			tempArr = save.map(item => `${targetFolder}\\${item}`)
 			exeArr.push(...save);
 		}
 		else if (save) {
-			return (`${targName}\\${save}`)
+			return (save)
 		}
 	}
 	return exeArr
 }
 
-async function finalFilter(input) {
+async function finalFilter(input, targName) {
 	if (!input) {
 		return ""
 	}
 	if (Array.isArray(input)) {
 		for (let i = 0; i < input.length; i++) {
 			const subject = input[i];
-			if (subject.includes("launcher")) {
+			//|| subject.name.includes(targName)
+			if (subject.name.includes("launcher")) {
 				return subject
 			}
 		}
@@ -172,4 +173,4 @@ fastify.listen({ port: 3000 }, function (err, address) {
 	// Server is now listening on ${address}
 })
 
-const fff =  findExecutable({ name: "Hades" }).then((result)=>console.log("hey", result))
+const fff =  findExecutable("bloonstd6").then((result)=>console.log("heyooo", result))
