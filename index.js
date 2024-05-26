@@ -3,6 +3,7 @@ const fastify = require('fastify')({
 	logger: true
 })
 
+var exec = require('child_process').execFile;
 const { dir } = require('node:console');
 const fsPath = require("node:path");
 
@@ -124,6 +125,7 @@ async function finalFilter(input, targName) {
 		}
 	}
 
+
 	return (input);
 }
 
@@ -137,12 +139,19 @@ Upon receiving a game name:
 	2. return the first file with extension .exe and run it through a filter
 2. If found and it passed the filtering, launch the exe
 */
-fastify.get('/launch/:name', function (request, reply) {
+fastify.get('/launch/:name', async function (request, reply) {
+	var w = false;
 	console.log("guess this works for", request.params.name);
-	const tempr = findExecutable(request);
+	const tempr = await findExecutable(request.params.name);
+	if (tempr) {
+		openExe(`${GAMES_FOLDER}\\${tempr}`);
+	}
+	else {
+		w = true;
+	}
 	reply.type("application/json")
-		.send({ type: "game", name: request.params.name })
-	oShell.ShellExecute(tempr)
+		.send({ type: w ? "game" : "error", name: request.params.name })
+	//oShell.ShellExecute(tempr)
 })
 
 // Declare a route
@@ -163,6 +172,14 @@ fastify.get('/', async function (request, reply) {
 });
 
 
+function openExe(exeName){
+   console.log("fun() start");
+   exec(exeName, function(err, data) {
+        console.log(err)
+        console.log(data.toString());
+    });
+}
+
 
 // Run the server!
 fastify.listen({ port: 3000 }, function (err, address) {
@@ -173,4 +190,4 @@ fastify.listen({ port: 3000 }, function (err, address) {
 	// Server is now listening on ${address}
 })
 
-const fff =  findExecutable("bloonstd6").then((result)=>console.log("heyooo", result))
+// const fff =  findExecutable("bloonstd6").then((result)=>console.log("heyooo", result))
